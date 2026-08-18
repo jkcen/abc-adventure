@@ -2,7 +2,11 @@
 
 A 2D adventure game built from Katherine's original game design.
 
-## Run it
+## Play it
+
+**▶ <https://cherlidesign.github.io/abc-adventure/>**
+
+Or run it locally:
 
 ```
 python3 -m http.server 8000
