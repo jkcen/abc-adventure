@@ -86,6 +86,7 @@ export class WorldMap {
     }
 
     // --- locations ---
+    ctx.save();
     ctx.textAlign = 'center';
     for (const n of NODES) {
       const p = pos(n);
@@ -115,6 +116,7 @@ export class WorldMap {
       ctx.fillText(open ? n.name : '? ? ?', p.x, p.y + r + 20);
       ctx.globalAlpha = 1;
     }
+    ctx.restore(); // node label text state
 
     ctx.restore(); // clip
     ctx.fillStyle = '#f6ecd8';

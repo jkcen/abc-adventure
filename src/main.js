@@ -124,6 +124,7 @@ function draw() {
 
     drawForeground(ctx, camera, th, titleT);
 
+    ctx.save();
     ctx.textAlign = 'center';
     ctx.fillStyle = '#3b2c50';
     ctx.font = `${Math.round(h * 0.085)}px "Bradley Hand", "Segoe Print", cursive`;
@@ -134,6 +135,7 @@ function draw() {
     ctx.globalAlpha = 0.5 + Math.sin(titleT * 3) * 0.3;
     ctx.fillText('press space to begin', w / 2, h * 0.87);
     ctx.globalAlpha = 1;
+    ctx.restore();
   } else if (scene === 'level') {
     level.draw(ctx);
   } else if (scene === 'map') {

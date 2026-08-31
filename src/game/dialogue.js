@@ -52,6 +52,10 @@ export class Dialogue {
 
     ctx.save();
     ctx.font = '17px "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
+    // Own every piece of text state we depend on. Canvas text settings are
+    // global and persist across frames, so inheriting them silently misplaces
+    // the whole bubble the moment another scene changes one.
+    ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
     const words = line.text.split(' ');
@@ -66,7 +70,9 @@ export class Dialogue {
     if (row) rows.push(row);
 
     const padX = 15, padY = 12, lh = 22;
-    const bw = Math.min(maxW, Math.max(...rows.map(r => ctx.measureText(r).width))) + padX * 2;
+    // Fit the widest row as measured. Clamping to maxW here would let a single
+    // unbreakable word render past the bubble edge.
+    const bw = Math.max(...rows.map(r => ctx.measureText(r).width)) + padX * 2;
     const bh = rows.length * lh + padY * 2;
     const bx = at.x - bw / 2;
     const by = at.y - bh - 26 + Math.sin(t * 2) * 1.5;
