@@ -1,8 +1,8 @@
-// LEVEL 1 — A's Journey.
-// A starts alone on her island and travels the floating-island world to reach
-// B's Island. Partway across, the world forks: an UPPER aerial timing route
+// LEVEL 1 — Wild's Journey.
+// Wild starts alone on her island and travels the floating-island world to reach
+// Stuffy's Island. Partway across, the world forks: an UPPER aerial timing route
 // and a LOWER exploratory route. Both physically exist in the level — the
-// player discovers the fork by walking into it — and both rejoin before B.
+// player discovers the fork by walking into it — and both rejoin before Stuffy.
 //
 // Layout is pure data. Geometry keys:
 //   ground : solid island the player stands on (also painted as a floating isle)
@@ -11,8 +11,8 @@
 
 export const LEVEL_1 = {
   id: 'level-1',
-  title: "A's Journey",
-  subtitle: 'to B’s Island',
+  title: "Wild's Journey",
+  subtitle: 'to Stuffy’s Island',
   theme: 'level-1',
   mood: 'level-1',
   mapLocation: 'level-1',
@@ -22,7 +22,7 @@ export const LEVEL_1 = {
   cloudSeaY: 1000,
 
   ground: [
-    // ---- A's island (intro: walk, then the first small jump) -------------
+    // ---- Wild's island (intro: walk, then the first small jump) -------------
     { x: -260, y: 520, w: 900, h: 320, seed: 1 },
     { x: 740,  y: 545, w: 190, h: 190, seed: 2 },
     { x: 1030, y: 505, w: 210, h: 220, seed: 3 },

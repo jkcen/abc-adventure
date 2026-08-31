@@ -3,6 +3,7 @@
 // conversation reads as something the birds are doing, not a UI screen.
 
 import { blobPath } from '../render/brush.js';
+import { charName } from '../core/names.js';
 
 export class Dialogue {
   constructor() {
@@ -91,10 +92,10 @@ export class Dialogue {
     ctx.fillStyle = '#fffaf0'; ctx.fill();
     ctx.strokeStyle = '#3a2b21'; ctx.lineWidth = 2.6; ctx.stroke();
 
-    // speaker initial — canonical id, never a generic label
+    // speaker name — canonical id resolved to a display name
     ctx.fillStyle = '#8a6f57';
     ctx.font = '13px "Bradley Hand", cursive';
-    ctx.fillText(line.speaker, bx + padX, by + 11);
+    ctx.fillText(charName(line.speaker), bx + padX, by + 11);
 
     ctx.fillStyle = '#33261c';
     ctx.font = '17px "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';

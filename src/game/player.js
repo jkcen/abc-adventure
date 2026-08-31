@@ -32,6 +32,7 @@ export class Player {
     this.hurtTimer = 0;
     this.control = true;       // cutscenes take this away
     this.scripted = null;      // {targetX, state} for cutscene walking
+    this.frozen = false;       // cutscene owns the position outright (riding the boat)
     this.emote = null;         // {text, time}
   }
 
@@ -52,6 +53,12 @@ export class Player {
 
   update(dt, input, solids, fx) {
     this.animT += dt;
+    // Riding something the cutscene moves: no gravity, no collision, no input.
+    if (this.frozen) {
+      this.vx = this.vy = 0;
+      if (this.forcedState) this.state = this.forcedState;
+      return;
+    }
     if (this.invuln > 0) this.invuln -= dt;
     if (this.hurtTimer > 0) this.hurtTimer -= dt;
     if (this._landTimer > 0) this._landTimer -= dt;
@@ -68,6 +75,11 @@ export class Player {
       want = (input.right ? 1 : 0) - (input.left ? 1 : 0);
       holdJump = input.jumpHeld;
     }
+
+    // Standing on a boat, left/right steer the BOAT, not her feet — otherwise
+    // she'd walk the deck and sail at the same time. Jumping still works, so
+    // she can always get off.
+    if (this.steering) { want = 0; this.vx = 0; }
 
     // horizontal
     const a = this.onGround ? ACCEL : AIR_ACCEL;

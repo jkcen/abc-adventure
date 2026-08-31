@@ -11,6 +11,7 @@
 // procedural painter with zero changes to gameplay code.
 
 import { assets } from '../core/assets.js';
+import { drawOwl } from './owl.js';
 import { blob, stroke, washBlob } from './brush.js';
 import { noise1 } from '../core/rng.js';
 
@@ -182,10 +183,44 @@ export function drawBird(ctx, id, state, w, h, t) {
 
 const STATES = ['idle','walk','run','jump','fall','fly','land','hurt','surprised','tired','sleep','happy','celebrate'];
 
+// Katherine's character sheet (assets/characters/abc.png), sliced into
+// transparent cut-outs. Every state maps to the drawn pose that reads best for
+// it; a state with no sprite still falls back to its procedural painter.
+const SPRITE_POSE = {
+  idle: 'side', walk: 'side', run: 'side', land: 'side', tired: 'side',
+  hurt: 'side', surprised: 'front', sleep: 'side',
+  jump: 'fly', fall: 'fly', fly: 'fly', happy: 'fly', celebrate: 'fly',
+};
+// Wings spread far past the collision box, so flight poses draw larger.
+const POSE_SCALE = { side: 1.15, front: 1.15, back: 1.15, fly: 1.7 };
+
+// The owl is not a bird-shaped variant of A/B/C — Katherine drew her front-on
+// with her own silhouette, so she gets her own painter and her own states.
+const OWL_STATES = [...STATES, 'watch', 'swoop', 'screech'];
+
 export function registerCharacterArt() {
   for (const id of Object.keys(PALETTE)) {
+    if (id === 'owl') continue;
     for (const st of STATES) {
       assets.paint(`char/${id}/${st}`, (ctx, w, h, t) => drawBird(ctx, id, st, w, h, t));
+    }
+  }
+  for (const st of OWL_STATES) {
+    assets.paint(`char/owl/${st}`, (ctx, w, h, t) => drawOwl(ctx, st, w, h, t));
+  }
+  // Wild, Stuffy and Peter are traced cut-outs of her character sheet. The owl is rebuilt
+  // procedurally from her owl drawing — swap in a transparent PNG the same way
+  // if she ever cuts one out:
+  //   assets.image('char/owl/watch', 'assets/characters/owl/watch.png', ...)
+  for (const id of ['A', 'B', 'C']) {
+    for (const [st, pose] of Object.entries(SPRITE_POSE)) {
+      assets.image(`char/${id}/${st}`, `assets/characters/${id}/${pose}.png`,
+                   { fit: 'contain', anchor: 'bottom', scale: POSE_SCALE[pose] });
+    }
+    // Extra views for cutscenes and portraits.
+    for (const pose of ['front', 'side', 'back', 'fly']) {
+      assets.image(`char/${id}/view/${pose}`, `assets/characters/${id}/${pose}.png`,
+                   { fit: 'contain', anchor: 'bottom', scale: POSE_SCALE[pose] });
     }
   }
 }

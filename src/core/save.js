@@ -7,8 +7,8 @@ const BLANK = {
   level: 'level-1',
   checkpoint: null,      // checkpoint id within the level
   routeTaken: null,      // 'upper' | 'lower' — the child's fork choice
-  metCharacters: ['A'],  // canonical ids: A, B, C, owl
-  visited: ['a-island'], // world-map location ids
+  metCharacters: ['A'],  // canonical ids: A, B, C, owl — display names live in core/names.js
+  visited: ['level-1'],  // world-map location ids
   completed: [],
   hintsSeen: [],
 };

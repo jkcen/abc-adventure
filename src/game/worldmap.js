@@ -1,5 +1,6 @@
 // World map — an illustrated page from inside this world, not a dashboard.
-// Shows the real journey: A's Island → the fork → B's Island → the road ahead.
+// The whole journey, and nothing more: the Purple Sky where Wild starts →
+// the Weed Sea → the Sunset Cliffs → Peter's Island, where the story ends.
 // Locked places are drawn faintly, the way an unfinished drawing looks.
 
 import { blob, stroke, blobPath, washBlob } from '../render/brush.js';
@@ -9,34 +10,55 @@ import { save } from '../core/save.js';
 
 // Positions are fractions of the map card, so it scales with the window.
 const NODES = [
-  { id: 'a-island',  name: 'A’s Island',    x: 0.09, y: 0.62, char: 'A' },
-  { id: 'level-1-upper', name: 'Upper Path', x: 0.21, y: 0.34, small: true },
-  { id: 'level-1-lower', name: 'Lower Path', x: 0.21, y: 0.82, small: true },
-  { id: 'b-island',  name: 'B’s Island',    x: 0.34, y: 0.55, char: 'B' },
-  { id: 'level-2',   name: 'Sunset Islands', x: 0.47, y: 0.35 },
-  { id: 'valley',    name: 'Mountain Valley', x: 0.58, y: 0.62 },
-  { id: 'forest',    name: 'The Forest',    x: 0.69, y: 0.44 },
-  { id: 'owl',       name: 'Owl’s Woods',   x: 0.79, y: 0.70, char: 'owl' },
-  { id: 'c-island',  name: 'C’s Island',    x: 0.91, y: 0.40, char: 'C' },
+  // One node per chapter, plus the island the whole journey is aimed at.
+  { id: 'level-1',  name: 'Purple Sky',     x: 0.13, y: 0.56, chars: ['A', 'B'] },
+  { id: 'level-2',  name: 'The Weed Sea',   x: 0.39, y: 0.32 },
+  { id: 'level-3',  name: 'Sunset Cliffs',  x: 0.65, y: 0.64 },
+  { id: 'c-island', name: 'Peter’s Island', x: 0.88, y: 0.38, chars: ['C'] },
 ];
 
 const EDGES = [
-  ['a-island', 'level-1-upper'], ['a-island', 'level-1-lower'],
-  ['level-1-upper', 'b-island'], ['level-1-lower', 'b-island'],
-  ['b-island', 'level-2'], ['level-2', 'valley'], ['valley', 'forest'],
-  ['forest', 'owl'], ['owl', 'c-island'],
+  ['level-1', 'level-2'], ['level-2', 'level-3'], ['level-3', 'c-island'],
 ];
 
 export class WorldMap {
-  constructor() { this.t = 0; this.current = 'a-island'; }
+  constructor() {
+    this.t = 0;
+    this.current = 'level-1';
+    this.chapters = [];     // [{node, label, open}] — the levels you may travel to
+    this.sel = 0;
+  }
+
+  // main.js refreshes this each time the map opens, from the save file.
+  setChapters(list, preferred = null) {
+    this.chapters = list;
+    const open = list.filter(c => c.open);
+    if (!open.length) { this.sel = 0; return; }
+    // The cursor lands on the chapter you are meant to play next — never on
+    // one you have just finished. Failing that, on where you are standing.
+    const want = list.findIndex(c => c.node === preferred && c.open);
+    const here = list.findIndex(c => c.node === this.current && c.open);
+    this.sel = want >= 0 ? want : (here >= 0 ? here : list.lastIndexOf(open[open.length - 1]));
+  }
+
+  get selected() { return this.chapters[this.sel]; }
+
+  move(dir) {
+    if (!this.chapters.some(c => c.open)) return;
+    let i = this.sel;
+    for (let n = 0; n < this.chapters.length; n++) {
+      i = (i + dir + this.chapters.length) % this.chapters.length;
+      if (this.chapters[i].open) { this.sel = i; return; }
+    }
+  }
 
   unlocked(id) {
-    if (id === 'a-island') return true;
+    if (id === 'level-1') return true;
     if (save.data.visited.includes(id)) return true;
-    // Route nodes use the level-scoped ids the level writes.
-    if (id === 'level-1-upper') return save.data.visited.includes('level-1-upper');
-    if (id === 'level-1-lower') return save.data.visited.includes('level-1-lower');
-    return false;
+    // A chapter you have earned the right to travel to reads as open, even if
+    // you have not set foot in it yet.
+    const ch = this.chapters.find(c => c.node === id);
+    return !!(ch && ch.open);
   }
 
   update(dt) { this.t += dt; }
@@ -59,10 +81,11 @@ export class WorldMap {
 
     // painted terrain wash so the page feels like part of the world
     ctx.globalAlpha = 0.3;
-    washBlob(ctx, cx + cw * 0.2, cy + ch * 0.6, cw * 0.22, ch * 0.3, '#c9bde4', 3);
-    washBlob(ctx, cx + cw * 0.5, cy + ch * 0.45, cw * 0.2, ch * 0.28, '#f2c193', 9);
-    washBlob(ctx, cx + cw * 0.72, cy + ch * 0.55, cw * 0.18, ch * 0.3, '#a9cf9c', 12);
-    washBlob(ctx, cx + cw * 0.9, cy + ch * 0.42, cw * 0.12, ch * 0.22, '#bfe3f2', 15);
+    // one wash per chapter, in that chapter's own colours
+    washBlob(ctx, cx + cw * 0.13, cy + ch * 0.56, cw * 0.19, ch * 0.34, '#c9bde4', 3);  // the purple sky
+    washBlob(ctx, cx + cw * 0.39, cy + ch * 0.34, cw * 0.19, ch * 0.30, '#8fd3cf', 9);  // the teal weed sea
+    washBlob(ctx, cx + cw * 0.65, cy + ch * 0.62, cw * 0.19, ch * 0.30, '#f0a878', 12); // the sunset cliffs
+    washBlob(ctx, cx + cw * 0.88, cy + ch * 0.38, cw * 0.11, ch * 0.20, '#ffe2a8', 15); // Peter's island
     ctx.globalAlpha = 1;
 
     const pos = (n) => ({ x: cx + cw * n.x, y: cy + ch * n.y });
@@ -92,6 +115,7 @@ export class WorldMap {
       const p = pos(n);
       const open = this.unlocked(n.id);
       const here = n.id === this.current;
+      const picked = this.selected && this.selected.open && this.selected.node === n.id;
       const r = n.small ? 13 : 20;
 
       ctx.globalAlpha = open ? 1 : 0.3;
@@ -100,15 +124,29 @@ export class WorldMap {
         blob(ctx, p.x, p.y, r + 16, r + 13, '#ffdf9a', 21);
         ctx.globalAlpha = 1;
       }
+      if (picked) {
+        // the travel cursor: a hand-drawn ring around the chapter you'd enter
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.setLineDash([6, 6]);
+        ctx.lineDashOffset = -t * 26;
+        ctx.strokeStyle = '#c2452f';
+        ctx.lineWidth = 3;
+        blobPath(ctx, p.x, p.y, r + 15 + Math.sin(t * 3) * 1.5, r + 12, 4, 16, 0.05);
+        ctx.stroke();
+        ctx.restore();
+      }
       blob(ctx, p.x, p.y + 4, r * 1.05, r * 0.55, 'rgba(90,70,50,.25)', 7); // cast shadow
       blob(ctx, p.x, p.y, r, r * 0.8, open ? '#9d84c4' : '#c3b8ce', n.x * 100,
            { stroke: 'rgba(60,44,30,.6)', lw: 2 });
       blob(ctx, p.x, p.y - r * 0.35, r * 0.9, r * 0.42, open ? '#8fc98a' : '#cfd6c8', n.x * 130);
 
-      // a discovered character stands on their own island
-      if (n.char && save.data.metCharacters.includes(n.char)) {
-        paintCharacter(ctx, n.char, 'idle', p.x - 15, p.y - r - 30, 30, 33, t, 1);
-      }
+      // everyone you have met so far stands on the chapter where you met them
+      const folks = (n.chars ?? []).filter(id => save.data.metCharacters.includes(id));
+      folks.forEach((id, i) => {
+        const off = (i - (folks.length - 1) / 2) * 30;
+        paintCharacter(ctx, id, 'idle', p.x - 15 + off, p.y - r - 30, 30, 33, t, 1);
+      });
 
       ctx.globalAlpha = open ? 0.95 : 0.35;
       ctx.fillStyle = '#3d2f22';
@@ -123,7 +161,10 @@ export class WorldMap {
     ctx.font = '15px "Bradley Hand", cursive';
     ctx.textAlign = 'center';
     ctx.globalAlpha = 0.75;
-    ctx.fillText('space — continue the journey     m — close map', w / 2, h - pad * 0.35);
+    const sel = this.selected;
+    ctx.fillText(sel && sel.open
+      ? `← →  choose      space — travel to ${sel.label}      m — back`
+      : 'space — continue the journey     m — back', w / 2, h - pad * 0.35);
     ctx.globalAlpha = 1;
     ctx.restore();
   }

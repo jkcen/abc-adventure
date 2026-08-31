@@ -1,4 +1,4 @@
-# A, B & C's Adventure
+# Wild, Stuffy & Peter's Adventure
 
 A 2D adventure game built from Katherine's original game design.
 
@@ -20,30 +20,61 @@ On a phone or tablet, the bottom third of the screen is left / jump / right.
 
 ## The characters — canonical, never to be swapped
 
-| id | who | look |
-|----|-----|------|
-| **A** | brave & determined | fully brown eagle, yellow beak & feet, black talons |
-| **B** | kind & clever | **white head**, brown body, yellow beak & feet |
-| **C** | friendly & warm | small all-white bird, soft silhouette |
-| **owl** | mysterious | forest owl, ear tufts, yellow eyes |
+| id | name | who | look |
+|----|------|-----|------|
+| **A** | **Wild** | brave & determined | fully brown eagle, yellow beak & feet, black talons |
+| **B** | **Stuffy** | kind & clever | **white head**, brown body, yellow beak & feet |
+| **C** | **Peter** | friendly & warm | small all-white bird, soft silhouette |
+| **owl** | **Owl** | mysterious | forest owl, ear tufts, yellow eyes |
 
-This mapping is hard-coded in `src/render/characters.js` (`PALETTE`) and used by
+Ids are canonical everywhere in the engine; the display names live in
+`src/core/names.js` (`CHAR_NAMES`) and are the only thing the player reads.
+The look is hard-coded in `src/render/characters.js` (`PALETTE`) and used by
 gameplay, dialogue, the map, and save data. Nothing should ever infer a character
 from "a bird that looks brownish" — always the id.
 
 ## What's playable now
 
-**Level 1 — A's Journey** is complete, start to finish:
+**Level 1 — Wild's Journey** is complete, start to finish:
 
-- A alone on her island; a lavender floating-island world with waterfalls falling into the clouds
+- Wild alone on her island; a lavender floating-island world with waterfalls falling into the clouds
 - The **fork**: it exists physically in the level. Walk up-right for the **upper path**, or off the ledge into the **waterfall** for the **lower path**. No buttons.
 - **Upper path** — fire rings to aim through, moving platforms, timed jumps
 - **Lower path** — the waterfall drop, the Wind Dragonfly's current, falling rocks with shadow warnings, then a climb back up
-- Both rejoin before **B's Island**, which has mountains, a forest, and its own waterfall so it reads as a real destination
-- **Arrival**: A lands, B notices her and hops, they walk toward each other, *then* they speak. B joins the journey.
+- Both rejoin before **Stuffy's Island**, which has mountains, a forest, and its own waterfall so it reads as a real destination
+- **Arrival**: Wild lands, Stuffy notices her and hops, they walk toward each other, *then* they speak. Stuffy joins the journey.
 - World map showing the route taken, who's been met, and what's still unknown
 
-Not yet built: Levels 2–5 (Phases 3–5 of the plan). The map already shows them locked.
+**Level 2 — Across the Weed Sea** is playable, painted from Katherine's second
+drawing:
+
+- A pale-pink sky over a teal sea, with long dark-green **weed bands** floating
+  in the air as the level's ground
+- **Stuffy travels with Wild now** — she flies Wild's own path a beat behind, so she never
+  blocks a jump
+- **Golden seeds** to collect (a reward, never a requirement — the tally is in
+  the corner), **black bugs** patrolling the bands, **drifting lily pads** to
+  time, the little **water cart**, and the **yellow slide** down to the shore
+- **The ending is the BOAT**: nobody is waiting there. Wild and Stuffy walk to it, say
+  their piece, and sail out toward Peter.
+
+Finishing Level 1 leads straight into Level 2 through the world map, and the
+save file remembers which chapters are done.
+
+**Level 3 — The Sunset Cliffs** is playable, and it is the one the journey was
+for: **A and B go and find C.** Painted from Katherine's third drawing:
+
+- A deep orange sunset over a blue wavy sea; two big butterflies over the cliff
+  they set out from
+- Flat **yellow-green planks** stepping up through the air, with **black ants**
+  walking them — no combat, just timing
+- A **fire ring** to aim through, and the **big brown moth** whose wind comes in
+  gusts and carries them across the widest gap
+- On the right, the tall **dripping cliffs**, the **crate on its rope** as a lift,
+  the **rope ladder**, and the grey **arrow** that says: up
+- At the top, **C is waiting** — the three of them together, and the sun going down
+
+Not yet built: the forest and the owl. The map still shows them locked.
 
 ## Architecture
 

@@ -5,6 +5,8 @@
 const SCALES = {
   'level-1': [0, 2, 4, 7, 9, 12, 14],       // curious / magical (major pentatonic-ish)
   'level-2': [0, 2, 5, 7, 9, 12],           // warm / adventurous
+  'level-3': [0, 2, 4, 7, 11, 12],           // golden / hopeful — the sunset climb
+  'level-4': [0, 3, 5, 7, 10, 12],          // the forest — quiet, a little wary
   'forest':  [0, 3, 5, 7, 10, 12],          // quiet / mysterious
   'owl':     [0, 1, 5, 6, 8, 11],           // suspenseful
   'c-island':[0, 4, 7, 9, 11, 12],          // peaceful / emotional

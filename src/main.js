@@ -1,17 +1,20 @@
 // Entry point + scene manager.
-// Scenes: title → level-1 → map. Level 2 slots in at the marked TODO.
+// Scenes: title → chapter → map → next chapter. Chapters are pure data,
+// so adding Level 3 means one more starter below.
 
 import { Input } from './core/input.js';
 import { Camera } from './core/camera.js';
 import { assets } from './core/assets.js';
 import { audio } from './core/audio.js';
 import { save } from './core/save.js';
-import { registerCharacterArt, paintCharacter } from './render/characters.js';
-import { drawSky, drawBackground, drawMidground, drawForeground } from './render/parallax.js';
-import { THEMES } from './levels/theme.js';
+import { charName } from './core/names.js';
+import { registerCharacterArt } from './render/characters.js';
 import { LEVEL_1 } from './levels/level-1.js';
+import { LEVEL_2 } from './levels/level-2.js';
+import { LEVEL_3 } from './levels/level-3.js';
 import { Level } from './game/level.js';
 import { WorldMap } from './game/worldmap.js';
+import { Ending } from './game/ending.js';
 import { blob } from './render/brush.js';
 
 const DESIGN_H = 640;          // logical height; width follows the aspect ratio
@@ -27,11 +30,11 @@ const map = new WorldMap();
 registerCharacterArt();
 
 // ---- Real artwork goes here. -----------------------------------------------
-// Each line overrides one procedural painter with Katherine's PNG. Nothing
-// else in the game needs to change when these are filled in.
+// Wild, Stuffy and Peter already run on Katherine's drawn sheet — registerCharacterArt()
+// wires assets/characters/<id>/{side,front,back,fly}.png over the painters.
+// Everything else still falls back to procedural art; each line below overrides
+// one more painter with a PNG, and nothing else in the game needs to change.
 //
-//   assets.image('char/A/idle', './assets/characters/A/idle.png');
-//   assets.image('char/B/walk', './assets/characters/B/walk.png');
 //   assets.image('obstacle/fire-ring', './assets/obstacles/fire-ring/ring.png');
 // ----------------------------------------------------------------------------
 
@@ -55,13 +58,100 @@ let fade = { a: 0, dir: 0, then: null };
 
 function fadeTo(fn) { fade = { a: 0, dir: 1, then: fn }; }
 
-function startLevel1() {
-  level = new Level(LEVEL_1, camera, hintEl);
+// The chapters that exist, in journey order. Each one is a map destination.
+const CHAPTERS = [
+  { node: 'level-1', cfg: LEVEL_1, label: LEVEL_1.title, arriveAt: 'level-2', requires: null },
+  { node: 'level-2', cfg: LEVEL_2, label: LEVEL_2.title, arriveAt: 'level-3', requires: 'level-1' },
+  { node: 'level-3', cfg: LEVEL_3, label: LEVEL_3.title, arriveAt: 'c-island', requires: 'level-2' },
+];
+
+const chapterOpen = (c) => !c.requires || save.data.completed.includes(c.requires);
+const chapterFor = (id) => CHAPTERS.find(c => c.cfg.id === id);
+
+// The map cursor starts where the save file left the journey, not at the top.
+map.current = (CHAPTERS.find(c => c.cfg.id === save.data.level) ?? CHAPTERS[0]).node;
+
+function startChapter(c, opts = {}) {
+  input.flush();
+  level = new Level(c.cfg, camera, hintEl, opts);
   level.onComplete = () => {
-    map.current = 'b-island';
-    fadeTo(() => { scene = 'map'; });
+    map.current = c.arriveAt;
+    // The last chapter doesn't hand you back to the map — it ends the story.
+    const last = c === CHAPTERS[CHAPTERS.length - 1];
+    fadeTo(() => { last ? showEnding() : openMap('level'); });
   };
+  map.current = c.node;
   scene = 'level';
+}
+
+// Where "continue" goes: the chapter in progress, else the first unfinished one.
+function nextChapter() {
+  const inProgress = chapterFor(save.data.level);
+  if (inProgress && chapterOpen(inProgress) && !save.data.completed.includes(inProgress.cfg.id)) {
+    return inProgress;
+  }
+  return CHAPTERS.find(c => chapterOpen(c) && !save.data.completed.includes(c.cfg.id))
+      ?? CHAPTERS.filter(chapterOpen).pop() ?? null;
+}
+
+// Is there anything to come back to?
+function hasProgress() {
+  return save.data.completed.length > 0 || !!save.data.checkpoint;
+}
+
+// One line on the title screen, so the save file is visible rather than implied.
+function progressLine() {
+  const c = chapterFor(save.data.level) ?? CHAPTERS[0];
+  const done = save.data.completed.includes(c.cfg.id);
+  const where = done ? 'finished' : (save.data.checkpoint ? `at ${save.data.checkpoint}` : 'just begun');
+  const friends = save.data.metCharacters.filter(id => id !== 'A').length;
+  return `last time — ${c.label}, ${where}` +
+         (friends ? `   ·   ${friends} friend${friends > 1 ? 's' : ''} found` : '');
+}
+
+// ------------------------------------------------------------------- map ---
+let mapFrom = 'title';
+let ending = null;
+const titleArt = new Ending();   // the home page painting (no words of its own)
+
+function openMap(from) {
+  mapFrom = from;
+  input.flush();          // a key held while the chapter ended must not move the cursor
+  map.setChapters(
+    CHAPTERS.map(c => ({ node: c.node, label: c.label, open: chapterOpen(c) })),
+    (nextChapter() ?? CHAPTERS[0]).node);
+  scene = 'map';
+}
+
+function showEnding() {
+  input.flush();
+  ending = new Ending();
+  scene = 'ending';
+}
+
+const storyFinished = () => save.data.completed.includes(CHAPTERS[CHAPTERS.length - 1].cfg.id);
+
+// ------------------------------------------------------------ title menu ---
+let menu = { items: [], i: 0 };
+
+function buildMenu() {
+  const items = [];
+  if (hasProgress()) items.push({ id: 'continue', label: 'continue' });
+  items.push({ id: 'new', label: hasProgress() ? 'start over' : 'begin' });
+  items.push({ id: 'map', label: 'world map' });
+  if (storyFinished()) items.push({ id: 'ending', label: 'the ending' });
+  menu = { items, i: 0 };
+}
+
+function chooseMenu(id) {
+  if (id === 'map') { openMap('title'); return; }
+  if (id === 'ending') { fadeTo(showEnding); return; }
+  if (id === 'new') {
+    save.reset();
+    fadeTo(() => startChapter(CHAPTERS[0]));
+    return;
+  }
+  fadeTo(() => startChapter(nextChapter() ?? CHAPTERS[0], { resume: true }));
 }
 
 function update(dt) {
@@ -81,24 +171,50 @@ function update(dt) {
     case 'title':
       titleT += dt;
       camera.x += dt * 22;   // slow drift so the title screen isn't a still image
-      if (input.consumeAnyKey() || input.consumeConfirm()) {
-        audio.unlock();
-        fadeTo(startLevel1);
-      }
+      if (!menu.items.length) buildMenu();
+      if (input.consumeLeft())  { audio.unlock(); menu.i = (menu.i - 1 + menu.items.length) % menu.items.length; }
+      if (input.consumeRight()) { audio.unlock(); menu.i = (menu.i + 1) % menu.items.length; }
+      if (input.consumeMap())   { audio.unlock(); openMap('title'); }
+      else if (input.consumeConfirm()) { audio.unlock(); chooseMenu(menu.items[menu.i].id); }
+      input.consumeAnyKey();
       break;
 
     case 'level':
       level.update(dt, input);
-      if (input.consumeMap()) { map.current = 'a-island'; scene = 'map'; }
+      // The map is always one key away, mid-level and all.
+      if (input.consumeMap() || input.consumeBack()) {
+        map.current = level.cfg.mapLocation ?? 'level-1';
+        openMap('level');
+      }
+      break;
+
+    case 'ending':
+      ending.update(dt, input);
+      if (ending.done) fadeTo(() => {
+        ending = null;
+        scene = 'title'; titleT = 0; buildMenu(); input.flush();
+      });
       break;
 
     case 'map':
       map.update(dt);
-      if (input.consumeConfirm() || input.consumeMap()) {
-        // TODO(Level 2): when 'level-2' is built, route here based on
-        // save.data.completed and load the next config.
-        scene = level && level.phase !== 'done' ? 'level' : 'title';
-        if (scene === 'title') titleT = 0;
+      if (input.consumeLeft())  map.move(-1);
+      if (input.consumeRight()) map.move(1);
+
+      // m / esc — back where you came from, without losing your place.
+      if (input.consumeMap() || input.consumeBack()) {
+        if (mapFrom === 'level' && level && level.phase !== 'done') scene = 'level';
+        else { scene = 'title'; titleT = 0; buildMenu(); input.flush(); }
+        break;
+      }
+
+      // space — travel to the chapter under the cursor.
+      if (input.consumeConfirm()) {
+        const pick = map.selected;
+        const c = (pick && pick.open ? CHAPTERS.find(k => k.node === pick.node) : null) ?? nextChapter();
+        if (!c) { scene = 'title'; titleT = 0; buildMenu(); break; }
+        if (level && level.cfg.id === c.cfg.id && level.phase !== 'done') { scene = 'level'; break; }
+        fadeTo(() => startChapter(c, { resume: save.data.level === c.cfg.id }));
       }
       break;
   }
@@ -109,35 +225,62 @@ function draw() {
   ctx.clearRect(0, 0, w, h);
 
   if (scene === 'title') {
-    const th = THEMES['level-1'];
-    drawSky(ctx, camera, th);
-    drawBackground(ctx, camera, th, titleT);
-    drawMidground(ctx, camera, th, titleT);
-
-    // A alone on a small island — the game's first image is its whole premise
-    const bx = w * 0.5, by = h * 0.62;
-    ctx.save();
-    blob(ctx, bx, by + 44, 116, 26, th.grass, 3, { stroke: th.ink, lw: 2.4 });
-    blob(ctx, bx, by + 74, 74, 40, th.rock, 4, { stroke: th.ink, lw: 2.4 });
-    paintCharacter(ctx, 'A', 'idle', bx - 26, by - 10, 52, 56, titleT, 1);
-    ctx.restore();
-
-    drawForeground(ctx, camera, th, titleT);
+    // The home page is the ending painting: all three of them flying home
+    // over the sunset, with the menu written across it.
+    titleArt.paint(ctx, w, h, titleT + 14);
 
     ctx.save();
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#3b2c50';
+    ctx.shadowColor = 'rgba(60,20,10,.6)';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = '#fff6e2';
     ctx.font = `${Math.round(h * 0.085)}px "Bradley Hand", "Segoe Print", cursive`;
-    ctx.fillText('A, B & C’s Adventure', w / 2, h * 0.22);
+    // the title follows the name table, so renaming a bird renames the game
+    ctx.fillText(`${charName('A')}, ${charName('B')} & ${charName('C')}’s Adventure`,
+                 w / 2, h * 0.22);
     ctx.font = `${Math.round(h * 0.032)}px "Bradley Hand", cursive`;
     ctx.globalAlpha = 0.75;
     ctx.fillText('a game by Katherine', w / 2, h * 0.29);
-    ctx.globalAlpha = 0.5 + Math.sin(titleT * 3) * 0.3;
-    ctx.fillText('press space to begin', w / 2, h * 0.87);
+
+    // --- the save file, said out loud ---
+    if (hasProgress()) {
+      ctx.globalAlpha = 0.6;
+      ctx.font = `${Math.round(h * 0.028)}px "Bradley Hand", cursive`;
+      ctx.fillText(progressLine(), w / 2, h * 0.74);
+    }
+
+    // --- menu: continue / start over / world map ---
+    if (!menu.items.length) buildMenu();
+    const fs = Math.round(h * 0.042);
+    ctx.font = `${fs}px "Bradley Hand", cursive`;
+    const gap = fs * 1.4;
+    const widths = menu.items.map(it => ctx.measureText(it.label).width);
+    const total = widths.reduce((a, b) => a + b, 0) + gap * (menu.items.length - 1);
+    let mx = w / 2 - total / 2;
+    const my = h * 0.83;
+    menu.items.forEach((it, i) => {
+      const on = i === menu.i;
+      ctx.globalAlpha = on ? 1 : 0.45;
+      ctx.textAlign = 'left';
+      if (on) {
+        // a hand-drawn underline that breathes, so the choice is unmissable
+        blob(ctx, mx + widths[i] / 2, my + fs * 0.42,
+             widths[i] / 2 + 8, 4 + Math.sin(titleT * 4) * 1.2, '#ffe28a', 3);
+      }
+      ctx.fillStyle = '#fff6e2';
+      ctx.fillText(it.label, mx, my);
+      mx += widths[i] + gap;
+    });
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = 0.45 + Math.sin(titleT * 3) * 0.15;
+    ctx.font = `${Math.round(h * 0.026)}px "Bradley Hand", cursive`;
+    ctx.fillText('← →  choose      space  go      m  world map', w / 2, h * 0.92);
     ctx.globalAlpha = 1;
     ctx.restore();
   } else if (scene === 'level') {
     level.draw(ctx);
+  } else if (scene === 'ending') {
+    ending.draw(ctx, w, h);
   } else if (scene === 'map') {
     map.draw(ctx, w, h);
   }

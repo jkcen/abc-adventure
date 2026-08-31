@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Owl — art check</title>
+<style>
+ body{margin:0;background:#f3ead6;font-family:"Bradley Hand","Segoe Print","Comic Sans MS",cursive;color:#3d2f22}
+ h1{font-size:26px;margin:22px 26px 4px} p{margin:0 26px 18px;opacity:.7}
+ .row{display:flex;flex-wrap:wrap;gap:22px;padding:0 26px 30px}
+ figure{margin:0;text-align:center}
+ canvas{background:#fffdf6;border:2px solid #d8c9a6;border-radius:10px;display:block}
+ figcaption{margin-top:6px;font-size:17px}
+</style></head><body>
+<h1>Owl — rebuilt from Katherine's drawing</h1>
+<p>rust body · one dark brown wing · grey-blue ear tufts sweeping down into the brow · speckled crown · yellow triangle beak</p>
+<div class="row" id="row"></div>
+<script type="module">
+import { drawOwl } from './src/render/owl.js';
+const STATES=[['watch','watching from the tree'],['idle','perched'],['swoop','diving'],
+              ['screech','calling'],['hurt','knocked back'],['sleep','asleep']];
+const row=document.getElementById('row');
+const cvs=[];
+for(const [st,label] of STATES){
+  const f=document.createElement('figure');
+  const c=document.createElement('canvas');
+  const dpr=Math.min(2,devicePixelRatio||1);
+  c.width=260*dpr; c.height=300*dpr; c.style.width='260px'; c.style.height='300px';
+  const x=c.getContext('2d'); x.scale(dpr,dpr);
+  f.append(c); const cap=document.createElement('figcaption'); cap.textContent=label; f.append(cap);
+  row.append(f); cvs.push([x,st]);
+}
+function frame(ms){
+  const t=ms/1000;
+  for(const [x,st] of cvs){
+    x.clearRect(0,0,260,300);
+    x.save(); x.translate(35,40); drawOwl(x,st,190,215,t); x.restore();
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script></body></html>
