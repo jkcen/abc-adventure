@@ -23,6 +23,7 @@ const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
 const hintEl = document.getElementById('hint');
 const soundBtn = document.getElementById('soundBtn');
+const surpriseEl = document.getElementById('surprise');
 
 const input = new Input();
 const camera = new Camera(1000, DESIGN_H);
@@ -129,8 +130,41 @@ function showEnding() {
   input.flush();
   level?.hideHint();
   ending = new Ending();
+  surprised = false;
   scene = 'ending';
 }
+
+// ------------------------------------------------------------ surprise ---
+// Once the ending's words have all landed, a short video plays as a surprise
+// (on a replay from the title menu too).
+// When it finishes (or is skipped) the ending painting comes back with its
+// usual "back to the title" prompt.
+let surprised = false;
+
+function playSurprise() {
+  input.flush();
+  surpriseEl.currentTime = 0;
+  surpriseEl.muted = audio.muted;
+  surpriseEl.classList.add('on');
+  scene = 'surprise';
+  // If the browser refuses sound, play it silently; if it won't play at all, skip it.
+  surpriseEl.play().catch(() => {
+    surpriseEl.muted = true;
+    return surpriseEl.play();
+  }).catch(endSurprise);
+}
+
+function endSurprise() {
+  if (scene !== 'surprise' || fade.dir === 1) return;
+  fadeTo(() => {
+    surpriseEl.pause();
+    surpriseEl.classList.remove('on');
+    input.flush();
+    scene = 'ending';
+  });
+}
+surpriseEl.addEventListener('ended', endSurprise);
+surpriseEl.addEventListener('error', endSurprise);
 
 const storyFinished = () => save.data.completed.includes(CHAPTERS[CHAPTERS.length - 1].cfg.id);
 
@@ -204,11 +238,22 @@ function update(dt) {
       break;
 
     case 'ending':
+      if (!surprised && ending.wordsLanded) {
+        surprised = true;
+        fadeTo(playSurprise);
+        break;
+      }
       ending.update(dt, input);
       if (ending.done) fadeTo(() => {
         ending = null;
         scene = 'title'; titleT = 0; buildMenu(); input.flush();
       });
+      break;
+
+    case 'surprise':
+      surpriseEl.muted = audio.muted;
+      // space / m skips it, straight to the ending's prompt
+      if (input.consumeConfirm() || input.consumeMap() || input.consumeBack()) endSurprise();
       break;
 
     case 'map':

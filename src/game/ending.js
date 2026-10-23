@@ -41,8 +41,11 @@ export class Ending {
     // Presses before then are dropped, not saved up — otherwise one impatient
     // tap early on would close the ending the instant it is allowed to.
     const confirm = input.consumeConfirm(), map = input.consumeMap();
-    if (this.hold > 16 && (confirm || map)) this.done = true;
+    if (this.wordsLanded && (confirm || map)) this.done = true;
   }
+
+  // every line is on screen and the player may leave
+  get wordsLanded() { return this.hold > 16; }
 
   draw(ctx, w, h) {
     this.paint(ctx, w, h, this.t);
@@ -323,7 +326,7 @@ export class Ending {
       if (ctx.globalAlpha > 0.01) ctx.fillText(text, w / 2, h * y);
     }
 
-    if (this.hold > 16) {
+    if (this.wordsLanded) {
       ctx.globalAlpha = 0.4 + Math.sin(t * 3) * 0.22;
       ctx.font = `${Math.round(h * 0.026)}px "Bradley Hand", cursive`;
       ctx.fillText(`${KEYS.go} — back to the title`, w / 2, h * 0.975);
