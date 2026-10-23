@@ -6,6 +6,8 @@ A 2D adventure game built from Katherine's original game design.
 
 **▶ <https://jkcen.github.io/abc-adventure/>**
 
+Reference version: <https://cherlidesign.github.io/abc-adventure/>
+
 Or run it locally:
 
 ```
