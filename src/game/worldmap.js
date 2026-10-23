@@ -7,6 +7,7 @@ import { blob, stroke, blobPath, washBlob } from '../render/brush.js';
 import { paintCharacter } from '../render/characters.js';
 import { hash } from '../core/rng.js';
 import { save } from '../core/save.js';
+import { KEYS } from '../core/input.js';
 
 // Positions are fractions of the map card, so it scales with the window.
 const NODES = [
@@ -163,8 +164,8 @@ export class WorldMap {
     ctx.globalAlpha = 0.75;
     const sel = this.selected;
     ctx.fillText(sel && sel.open
-      ? `← →  choose      space — travel to ${sel.label}      m — back`
-      : 'space — continue the journey     m — back', w / 2, h - pad * 0.35);
+      ? `${KEYS.choose}  choose      ${KEYS.go} — travel to ${sel.label}      ${KEYS.map} — back`
+      : `${KEYS.go} — continue the journey     ${KEYS.map} — back`, w / 2, h - pad * 0.35);
     ctx.globalAlpha = 1;
     ctx.restore();
   }

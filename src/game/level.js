@@ -27,23 +27,31 @@ export class Level {
     this.t = 0;
 
     this.player = new Player(cfg.player.id, cfg.player.x, cfg.player.y - 44);
-    this.obstacles = cfg.obstacles.map(buildObstacle).filter(Boolean);
+    // Each obstacle remembers its place in the config, so collected seeds can
+    // be saved by index and stay collected when you continue.
+    this.obstacles = cfg.obstacles.map((o, i) => {
+      const b = buildObstacle(o);
+      if (b) b.index = i;
+      return b;
+    }).filter(Boolean);
     this.particles = new Particles();
     this.dialogue = new Dialogue();
 
     // Where this run begins: the start of the chapter, or the last checkpoint
     // the player reached in it if they asked to continue.
     this.checkpoint = cfg.checkpoints[0];
-    if (opts.resume && save.data.level === cfg.id && save.data.checkpoint) {
-      const c = cfg.checkpoints.find(k => k.id === save.data.checkpoint);
+    const savedAt = save.checkpointIn(cfg.id);
+    if (opts.resume && savedAt) {
+      const c = cfg.checkpoints.find(k => k.id === savedAt);
       if (c) { this.checkpoint = c; this.player.respawn(c.x + 40, c.y); }
     } else {
-      save.data.checkpoint = null;
+      save.clearChapter(cfg.id);
     }
     save.data.level = cfg.id;
     save.write();
 
     this.activeHint = null;
+    this.hideHint();            // the last chapter's hint may still be up
     this.phase = 'play';        // intro | play | arrival | done
     this.arrivalStep = 0;
     this.arrivalT = 0;
@@ -67,6 +75,11 @@ export class Level {
     this.sail = 0;              // 0→1 as the boat leaves the island
     this._aboard = false;       // A and B are standing in the boat, not beside it
     this.seeds = { got: 0, total: cfg.obstacles.filter(o => o.kind === 'seed').length };
+    // seeds picked up before you last left this chapter stay picked up
+    const taken = save.seedsIn(cfg.id);
+    for (const o of this.obstacles) {
+      if (o.type === 'seed' && taken.includes(o.index)) { o.collected = true; o.taken = 1; this.seeds.got++; }
+    }
 
     // An opening beat, if this chapter has one: A arrives somewhere and gets
     // off whatever brought her there before the player takes over.
@@ -191,6 +204,7 @@ export class Level {
     for (const o of this.obstacles) {
       if (!o.pickup || !o.pickup(this.player)) continue;
       this.seeds.got++;
+      save.takeSeed(this.cfg.id, o.index);
       audio.checkpoint();
       this.particles.burst(o.x, o.y, 12,
         { color: '#f6dd7a', life: 0.7, r: 3, vy: -180, g: 320 });
@@ -324,8 +338,7 @@ export class Level {
         // Never move the checkpoint backwards along the journey.
         if (c.x <= this.checkpoint.x) continue;
         this.checkpoint = c;
-        save.data.checkpoint = c.id;
-        save.write();
+        save.setCheckpoint(this.cfg.id, c.id);
         audio.checkpoint();
         this.particles.burst(c.x, c.y - 10, 12,
           { color: '#fff0b8', life: 0.8, r: 3, vy: -160, g: 300 });
@@ -363,6 +376,14 @@ export class Level {
     if (this.activeHint && this.player.cx > this.activeHint.x + this.activeHint.w / 2) {
       save.markHint(this.activeHint.id);
     }
+  }
+
+  // The hint is a page element over the canvas, so it outlives the scene
+  // unless someone takes it down. Leaving for the map calls this; coming back,
+  // the next _checkHints puts the right one up again.
+  hideHint() {
+    this.activeHint = null;
+    this.hintEl.classList.remove('on');
   }
 
   // ----------------------------------------------------- opening cutscene -----

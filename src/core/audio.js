@@ -2,6 +2,9 @@
 // arrive. Drop files into /assets/audio and register them here to override.
 // Music is a slow generative motif whose scale/tempo changes per chapter.
 
+const MUTE_KEY = 'abc-adventure-muted';
+const VOLUME = 0.28;
+
 const SCALES = {
   'level-1': [0, 2, 4, 7, 9, 12, 14],       // curious / magical (major pentatonic-ish)
   'level-2': [0, 2, 5, 7, 9, 12],           // warm / adventurous
@@ -19,15 +22,22 @@ export class Audio {
     this.mood = 'level-1';
     this._next = 0;
     this._step = 0;
+    // Its own key, not the save file: "start over" must not turn the sound back on.
+    try { this.muted = localStorage.getItem(MUTE_KEY) === '1'; } catch { this.muted = false; }
   }
 
-  // Browsers require a gesture before audio starts.
+  // Browsers require a gesture before audio starts, and Safari only counts
+  // one if this runs inside the event handler itself. A context made too
+  // early starts suspended, so later gestures resume it.
   unlock() {
-    if (this.ctx) return;
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+      return;
+    }
     try {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.28;
+      this.master.gain.value = this.muted ? 0 : VOLUME;
       this.master.connect(this.ctx.destination);
 
       this.musicGain = this.ctx.createGain();
@@ -40,6 +50,12 @@ export class Audio {
 
   setMood(m) { if (SCALES[m]) this.mood = m; }
   setMasterVolume(v) { if (this.master) this.master.gain.value = v; }
+
+  toggleMute() {
+    this.muted = !this.muted;
+    if (this.master) this.master.gain.value = this.muted ? 0 : VOLUME;
+    try { localStorage.setItem(MUTE_KEY, this.muted ? '1' : '0'); } catch { /* play on */ }
+  }
 
   // Filtered noise = wind. One long-lived node, modulated over time.
   _startAmbience() {

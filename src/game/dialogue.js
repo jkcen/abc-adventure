@@ -18,6 +18,7 @@ export class Dialogue {
   play(lines, onDone) {
     this.lines = lines; this.i = 0; this.charT = 0;
     this.active = true; this.onDone = onDone;
+    this._stale = true;
   }
 
   get current() { return this.lines[this.i]; }
@@ -26,9 +27,18 @@ export class Dialogue {
     if (!this.active) return;
     const line = this.current;
     if (!line) return this._finish();
+    // Every jump also counts as a confirm, and nothing takes it during play.
+    // Drop whatever was pressed before the bubble appeared, or the jump that
+    // carried her into the cutscene would skip its first line.
+    if (this._stale) { input.consumeConfirm(); input.consumeJump(); this._stale = false; }
     this.charT += dt * 38;
 
-    if (input.consumeConfirm()) {
+    // Up jumps without confirming, so take the jump buffer too: a child who
+    // jumps with ↑ can still read on with it. Both are consumed, or one press
+    // of space would advance twice.
+    const confirm = input.consumeConfirm();
+    const jump = input.consumeJump();
+    if (confirm || jump) {
       if (this.charT < line.text.length) this.charT = line.text.length; // reveal all
       else {
         this.i++; this.charT = 0;

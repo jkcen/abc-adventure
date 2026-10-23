@@ -15,19 +15,41 @@
   #touch{position:fixed;inset:auto 0 0 0;height:38%;display:none;
     justify-content:space-between;pointer-events:none;}
   #touch.on{display:flex}
-  .pad{pointer-events:auto;width:33%;height:100%;}
-  .pad:active{background:rgba(255,255,255,.06)}
+  .pad{pointer-events:auto;width:33%;height:100%;box-sizing:border-box;
+    display:flex;align-items:flex-end;justify-content:center;padding-bottom:6%;
+    color:rgba(255,255,255,.4);font:34px sans-serif;text-shadow:0 2px 6px rgba(0,0,0,.4);
+    user-select:none;-webkit-user-select:none;}
+  .pad:active{background:rgba(255,255,255,.08)}
   #jumpPad{width:34%}
+  /* the menus are written across the middle pad; outside play it is just "tap" */
+  body:not([data-scene="level"]) #jumpPad{color:transparent;text-shadow:none}
+  #touchTop{position:fixed;top:12px;right:12px;display:none;gap:10px;}
+  #touchTop.on{display:flex}
+  .btn{min-width:48px;height:48px;padding:0 12px;box-sizing:border-box;border-radius:24px;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(20,14,30,.35);color:rgba(255,255,255,.85);font-size:20px;
+    user-select:none;-webkit-user-select:none;}
+  .btn.off{opacity:.45;text-decoration:line-through}
+  /* the game is painted for a landscape screen; on a phone held upright, ask */
+  #rotate{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;background:#20182c;color:#fff6e2;font-size:24px;text-align:center;padding:24px;}
+  #rotate b{font-size:56px;font-weight:normal}
+  @media (orientation: portrait) and (pointer: coarse){ #rotate{display:flex} }
 </style>
 </head>
 <body>
   <canvas id="stage"></canvas>
   <div id="hint"></div>
   <div id="touch">
-    <div class="pad" id="leftPad"></div>
-    <div class="pad" id="jumpPad"></div>
-    <div class="pad" id="rightPad"></div>
+    <div class="pad" id="leftPad">◀</div>
+    <div class="pad" id="jumpPad">▲</div>
+    <div class="pad" id="rightPad">▶</div>
   </div>
+  <div id="touchTop">
+    <div class="btn" id="soundBtn">♪</div>
+    <div class="btn" id="mapBtn">map</div>
+  </div>
+  <div id="rotate"><b>↻</b>turn your device sideways to play</div>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

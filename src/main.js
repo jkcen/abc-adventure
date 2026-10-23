@@ -2,7 +2,7 @@
 // Scenes: title → chapter → map → next chapter. Chapters are pure data,
 // so adding Level 3 means one more starter below.
 
-import { Input } from './core/input.js';
+import { Input, KEYS, IS_TOUCH } from './core/input.js';
 import { Camera } from './core/camera.js';
 import { assets } from './core/assets.js';
 import { audio } from './core/audio.js';
@@ -22,6 +22,7 @@ const DESIGN_H = 640;          // logical height; width follows the aspect ratio
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
 const hintEl = document.getElementById('hint');
+const soundBtn = document.getElementById('soundBtn');
 
 const input = new Input();
 const camera = new Camera(1000, DESIGN_H);
@@ -96,14 +97,14 @@ function nextChapter() {
 
 // Is there anything to come back to?
 function hasProgress() {
-  return save.data.completed.length > 0 || !!save.data.checkpoint;
+  return save.data.completed.length > 0 || Object.keys(save.data.checkpoints).length > 0;
 }
 
 // One line on the title screen, so the save file is visible rather than implied.
 function progressLine() {
   const c = chapterFor(save.data.level) ?? CHAPTERS[0];
   const done = save.data.completed.includes(c.cfg.id);
-  const where = done ? 'finished' : (save.data.checkpoint ? `at ${save.data.checkpoint}` : 'just begun');
+  const where = done ? 'finished' : (save.checkpointIn(c.cfg.id) ? 'partway through' : 'just begun');
   const friends = save.data.metCharacters.filter(id => id !== 'A').length;
   return `last time — ${c.label}, ${where}` +
          (friends ? `   ·   ${friends} friend${friends > 1 ? 's' : ''} found` : '');
@@ -116,6 +117,7 @@ const titleArt = new Ending();   // the home page painting (no words of its own)
 
 function openMap(from) {
   mapFrom = from;
+  level?.hideHint();
   input.flush();          // a key held while the chapter ended must not move the cursor
   map.setChapters(
     CHAPTERS.map(c => ({ node: c.node, label: c.label, open: chapterOpen(c) })),
@@ -125,6 +127,7 @@ function openMap(from) {
 
 function showEnding() {
   input.flush();
+  level?.hideHint();
   ending = new Ending();
   scene = 'ending';
 }
@@ -137,13 +140,21 @@ let menu = { items: [], i: 0 };
 function buildMenu() {
   const items = [];
   if (hasProgress()) items.push({ id: 'continue', label: 'continue' });
-  items.push({ id: 'new', label: hasProgress() ? 'start over' : 'begin' });
+  // Starting over wipes the save, so with progress it takes a second press.
+  items.push({ id: 'new', label: hasProgress() ? 'start over' : 'begin', confirm: hasProgress() });
   items.push({ id: 'map', label: 'world map' });
   if (storyFinished()) items.push({ id: 'ending', label: 'the ending' });
-  menu = { items, i: 0 };
+  menu = { items, i: 0, armed: null };
 }
 
-function chooseMenu(id) {
+function menuLabel(it) {
+  return menu.armed === it.id ? 'sure? press again' : it.label;
+}
+
+function chooseMenu(it) {
+  const id = it.id;
+  if (it.confirm && menu.armed !== id) { menu.armed = id; return; }
+  menu.armed = null;
   if (id === 'map') { openMap('title'); return; }
   if (id === 'ending') { fadeTo(showEnding); return; }
   if (id === 'new') {
@@ -156,6 +167,10 @@ function chooseMenu(id) {
 
 function update(dt) {
   input.update(dt);
+  if (input.consumeSound()) {
+    audio.toggleMute();
+    soundBtn?.classList.toggle('off', audio.muted);
+  }
 
   if (fade.dir === 1) {
     fade.a = Math.min(1, fade.a + dt * 1.8);
@@ -172,10 +187,10 @@ function update(dt) {
       titleT += dt;
       camera.x += dt * 22;   // slow drift so the title screen isn't a still image
       if (!menu.items.length) buildMenu();
-      if (input.consumeLeft())  { audio.unlock(); menu.i = (menu.i - 1 + menu.items.length) % menu.items.length; }
-      if (input.consumeRight()) { audio.unlock(); menu.i = (menu.i + 1) % menu.items.length; }
-      if (input.consumeMap())   { audio.unlock(); openMap('title'); }
-      else if (input.consumeConfirm()) { audio.unlock(); chooseMenu(menu.items[menu.i].id); }
+      if (input.consumeLeft())  { menu.armed = null; menu.i = (menu.i - 1 + menu.items.length) % menu.items.length; }
+      if (input.consumeRight()) { menu.armed = null; menu.i = (menu.i + 1) % menu.items.length; }
+      if (input.consumeMap())   { menu.armed = null; openMap('title'); }
+      else if (input.consumeConfirm()) chooseMenu(menu.items[menu.i]);
       input.consumeAnyKey();
       break;
 
@@ -214,14 +229,18 @@ function update(dt) {
         const c = (pick && pick.open ? CHAPTERS.find(k => k.node === pick.node) : null) ?? nextChapter();
         if (!c) { scene = 'title'; titleT = 0; buildMenu(); break; }
         if (level && level.cfg.id === c.cfg.id && level.phase !== 'done') { scene = 'level'; break; }
-        fadeTo(() => startChapter(c, { resume: save.data.level === c.cfg.id }));
+        // every chapter keeps its own checkpoint, so travelling always resumes
+        fadeTo(() => startChapter(c, { resume: true }));
       }
       break;
   }
 }
 
+let shownScene = null;
 function draw() {
   const w = camera.viewW, h = camera.viewH;
+  // lets the page style itself per scene (the touch pads' labels)
+  if (scene !== shownScene) document.body.dataset.scene = shownScene = scene;
   ctx.clearRect(0, 0, w, h);
 
   if (scene === 'title') {
@@ -234,10 +253,10 @@ function draw() {
     ctx.shadowColor = 'rgba(60,20,10,.6)';
     ctx.shadowBlur = 12;
     ctx.fillStyle = '#fff6e2';
-    ctx.font = `${Math.round(h * 0.085)}px "Bradley Hand", "Segoe Print", cursive`;
     // the title follows the name table, so renaming a bird renames the game
-    ctx.fillText(`${charName('A')}, ${charName('B')} & ${charName('C')}’s Adventure`,
-                 w / 2, h * 0.22);
+    const title = `${charName('A')}, ${charName('B')} & ${charName('C')}’s Adventure`;
+    fitFont(ctx, title, h * 0.085, '"Bradley Hand", "Segoe Print", cursive', w * 0.92);
+    ctx.fillText(title, w / 2, h * 0.22);
     ctx.font = `${Math.round(h * 0.032)}px "Bradley Hand", cursive`;
     ctx.globalAlpha = 0.75;
     ctx.fillText('a game by Katherine', w / 2, h * 0.29);
@@ -245,16 +264,17 @@ function draw() {
     // --- the save file, said out loud ---
     if (hasProgress()) {
       ctx.globalAlpha = 0.6;
-      ctx.font = `${Math.round(h * 0.028)}px "Bradley Hand", cursive`;
-      ctx.fillText(progressLine(), w / 2, h * 0.74);
+      const line = progressLine();
+      fitFont(ctx, line, h * 0.028, '"Bradley Hand", cursive', w * 0.92);
+      ctx.fillText(line, w / 2, h * 0.74);
     }
 
     // --- menu: continue / start over / world map ---
     if (!menu.items.length) buildMenu();
-    const fs = Math.round(h * 0.042);
-    ctx.font = `${fs}px "Bradley Hand", cursive`;
+    const labels = menu.items.map(menuLabel);
+    const fs = fitFont(ctx, labels.join('      '), h * 0.042, '"Bradley Hand", cursive', w * 0.92);
     const gap = fs * 1.4;
-    const widths = menu.items.map(it => ctx.measureText(it.label).width);
+    const widths = labels.map(l => ctx.measureText(l).width);
     const total = widths.reduce((a, b) => a + b, 0) + gap * (menu.items.length - 1);
     let mx = w / 2 - total / 2;
     const my = h * 0.83;
@@ -268,13 +288,14 @@ function draw() {
              widths[i] / 2 + 8, 4 + Math.sin(titleT * 4) * 1.2, '#ffe28a', 3);
       }
       ctx.fillStyle = '#fff6e2';
-      ctx.fillText(it.label, mx, my);
+      ctx.fillText(labels[i], mx, my);
       mx += widths[i] + gap;
     });
     ctx.textAlign = 'center';
     ctx.globalAlpha = 0.45 + Math.sin(titleT * 3) * 0.15;
-    ctx.font = `${Math.round(h * 0.026)}px "Bradley Hand", cursive`;
-    ctx.fillText('← →  choose      space  go      m  world map', w / 2, h * 0.92);
+    const keys = `${KEYS.choose}  choose      ${KEYS.go}  go      ${KEYS.map}  world map      ${KEYS.sound}  sound`;
+    fitFont(ctx, keys, h * 0.026, '"Bradley Hand", cursive', w * 0.92);
+    ctx.fillText(keys, w / 2, h * 0.92);
     ctx.globalAlpha = 1;
     ctx.restore();
   } else if (scene === 'level') {
@@ -289,6 +310,31 @@ function draw() {
     ctx.fillStyle = `rgba(24,18,34,${fade.a})`;
     ctx.fillRect(0, 0, w, h);
   }
+
+  // say so when the sound is off, so silence never looks like a bug
+  // (touch devices show it on the ♪ button instead)
+  if (audio.muted && !IS_TOUCH) {
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = '#fff6e2';
+    ctx.font = '16px "Bradley Hand", cursive';
+    ctx.textAlign = 'right';
+    ctx.fillText(`sound off — ${KEYS.sound}`, w - 20, 30);
+    ctx.restore();
+  }
+}
+
+// Set ctx.font at `px`, shrunk if needed so `text` fits in `maxW`. Returns
+// the size used. Narrow windows would otherwise cut the title off.
+function fitFont(ctx, text, px, family, maxW) {
+  let size = Math.round(px);
+  ctx.font = `${size}px ${family}`;
+  const tw = ctx.measureText(text).width;
+  if (tw > maxW) {
+    size = Math.max(10, Math.floor(size * maxW / tw));
+    ctx.font = `${size}px ${family}`;
+  }
+  return size;
 }
 
 let last = performance.now();
@@ -301,4 +347,8 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-addEventListener('pointerdown', () => audio.unlock(), { once: true });
+// Audio may only start inside a real gesture, so unlock from the events
+// themselves rather than from the game loop. Every gesture, not just the
+// first: a suspended context needs resuming again later.
+for (const ev of ['keydown', 'pointerdown', 'touchend']) addEventListener(ev, () => audio.unlock());
+soundBtn?.classList.toggle('off', audio.muted);

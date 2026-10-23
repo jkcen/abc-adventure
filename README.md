@@ -14,9 +14,10 @@ python3 -m http.server 8000
 
 Then open <http://localhost:8000>. (It needs a server, not `file://` — the game uses ES modules.)
 
-**Controls** — ← → to move, **space** to jump, hold space while falling to glide,
-**m** for the world map, **enter/space** to advance dialogue.
-On a phone or tablet, the bottom third of the screen is left / jump / right.
+**Controls** — ← → to move, **space** (or ↑) to jump, hold space while falling to glide,
+**m** (or esc) for the world map, **space/enter** to advance dialogue, **n** to turn the sound
+on and off. On a phone or tablet, play sideways: the bottom of the screen is ◀ / ▲ / ▶,
+and the **map** and **♪** buttons sit in the top corner.
 
 ## The characters — canonical, never to be swapped
 

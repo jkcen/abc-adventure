@@ -10,6 +10,7 @@ import { blob, blobPath, stroke, washBlob, glow } from '../render/brush.js';
 import { paintCharacter } from '../render/characters.js';
 import { hash, wob, noise1 } from '../core/rng.js';
 import { charName } from '../core/names.js';
+import { KEYS } from '../core/input.js';
 
 const PAL = {
   skyTop: '#a51616', skyMid: '#e2571a', skyLow: '#f59a10', skyHaze: '#f6c02a',
@@ -37,7 +38,10 @@ export class Ending {
     this.hold += dt;
     // The ending is meant to be sat with — the words arrive one at a time and
     // only after they have all landed can the player leave.
-    if (this.hold > 16 && (input.consumeConfirm() || input.consumeMap())) this.done = true;
+    // Presses before then are dropped, not saved up — otherwise one impatient
+    // tap early on would close the ending the instant it is allowed to.
+    const confirm = input.consumeConfirm(), map = input.consumeMap();
+    if (this.hold > 16 && (confirm || map)) this.done = true;
   }
 
   draw(ctx, w, h) {
@@ -322,7 +326,7 @@ export class Ending {
     if (this.hold > 16) {
       ctx.globalAlpha = 0.4 + Math.sin(t * 3) * 0.22;
       ctx.font = `${Math.round(h * 0.026)}px "Bradley Hand", cursive`;
-      ctx.fillText('space — back to the map', w / 2, h * 0.975);
+      ctx.fillText(`${KEYS.go} — back to the title`, w / 2, h * 0.975);
     }
     ctx.restore();
   }
